@@ -36,8 +36,8 @@ public:
 	};
 
 	//Complete these two functions. The functions should return your student id and your name.
-	int StudentID() { return 0; }
-	std::string StudentName() { return ""; }
+	int StudentID() { return 851182; }
+	std::string StudentName() { return "Neil Woodhouse"; }
 };
 
 
