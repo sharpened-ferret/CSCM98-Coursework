@@ -16,8 +16,6 @@ class Scheduler
 private:
 	Task tasks[NB_TASKS]; //Storing a list of tasks
 	Processor processors[NB_PROCESSORS]; //Simulating running processors
-	int currentTask = 0;
-	int completedTasks = 0;
 private:
 	void CreateEnvironment();  //This function should not be modified. Definition is put inside the equivalent cpp file.
 public:
@@ -26,6 +24,8 @@ public:
 
 // own code from here
 private:
+	int currentTask = 0;
+	int completedTasks = 0;
 
 public:
 	void ScheduleTasksUntilEnd()  //In this function you will have to schedule all the tasks until completion of all of them.
