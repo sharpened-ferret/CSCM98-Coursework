@@ -6,6 +6,7 @@
 #include <list>
 #include <thread>
 #include "Processor.h"
+using namespace std;
 
 //The scheduler class should implement scheduling operations required to allow smooth scheduling of all the tasks
 class Task;
@@ -15,6 +16,8 @@ class Scheduler
 private:
 	Task tasks[NB_TASKS]; //Storing a list of tasks
 	Processor processors[NB_PROCESSORS]; //Simulating running processors
+	int currentTask = 0;
+	int completedTasks = 0;
 private:
 	void CreateEnvironment();  //This function should not be modified. Definition is put inside the equivalent cpp file.
 public:
@@ -27,12 +30,48 @@ private:
 public:
 	void ScheduleTasksUntilEnd()  //In this function you will have to schedule all the tasks until completion of all of them.
 	{
+		/*for (int i = 0; i < NB_PROCESSORS; i++) {
+			processors[i].StartProcessor();
+		}*/
+		std::mutex m;
+		while (completedTasks < NB_TASKS) 
+		{
+			for (int i = 0; i < NB_PROCESSORS; i++) 
+			{
+				if (!processors[i].IsBusy()) 
+				{
+					if (tasks[currentTask].IsReady() && !tasks[currentTask].IsWaitingForIO())
+					{
+						//cout << "Task: " << tasks[currentTask].GetID() << " " << tasks[currentTask].IsReady() << "\n";
+						processors[i].LaunchTask(tasks[currentTask]);
+						//cout << "\nProcessor " << processors[i].GetID() << " running task " << tasks[currentTask].GetID();					
+					}
+					currentTask = (currentTask + 1) % NB_TASKS;
+				}
+			}
+		}
 	};
 
 
 	//The function NotifyEndScheduling is called by the thread representing a processor when done with running a task. This may be of use in some implementations.
 	void NotifyEndScheduling(int processor, int taskId, TaskState state)
 	{
+		if (state == 2) {
+			//cout << "\nTask: " << taskId << " complete";
+			completedTasks += 1;
+			/*for (int i = 0; i < NB_TASKS; i++) {
+				if (tasks[i].IsReady()) {
+					processors[processor].LaunchTask(tasks[i]);
+				}
+			}*/
+			//cout << "\n" << completedTasks << " tasks completed";
+		}
+		if (state == 5) {
+			cout << "\nTask " << taskId << " done";
+		}
+		if (state == 4) {
+			cout << "\nTask " << taskId << " waiting IO";
+		}
 	};
 
 	//Complete these two functions. The functions should return your student id and your name.
