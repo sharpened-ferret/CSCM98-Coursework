@@ -6,6 +6,8 @@
 #include <list>
 #include <thread>
 #include "Processor.h"
+
+// NOTE :: I added this include and namespace to this file
 #include <Queue>
 using namespace std;
 
@@ -25,16 +27,35 @@ public:
 
 // own code from here
 private:
-	int currentTask = 0;
 	atomic<int> completedTasks = 0;
 	int queuedTasks = 0;
 	queue<Task*> taskQueue;
 	mutex queueMutex;
-	mutex completedMutex;
+
+	/*
+	 Helper function to handle calling the next queued task on a specified processor
+	*/
+	void CallNextTask(int processor)
+	{
+		while (true) {
+			// This mutex block slows execution a fair bit
+			// It protects against dequeues on an empty taskQueue 
+			queueMutex.lock();
+			if (taskQueue.size() > 0)
+			{
+				processors[processor].LaunchTask(*taskQueue.front());
+				taskQueue.pop();
+				queueMutex.unlock();
+				return;
+			}
+			queueMutex.unlock();
+		}
+	}
 
 public:
 	void ScheduleTasksUntilEnd()  //In this function you will have to schedule all the tasks until completion of all of them.
 	{
+		// Adds the task list to a queue
 		while (queuedTasks < NB_TASKS)
 		{
 			for (int i = 0; i < NB_TASKS; i++)
@@ -43,107 +64,76 @@ public:
 				queuedTasks++;
 			}
 		}
-		/*while (taskQueue.size() > 0)
-		{
-			cout << taskQueue.front()->IsReady();
-			taskQueue.pop();
-		}*/
+		// Starts Initial Tasks on all processors
 		for (int i = 0; i < NB_PROCESSORS; i++)
 		{
-			queueMutex.lock();
-			processors[i].LaunchTask(*taskQueue.front());
-			taskQueue.pop();
-			queueMutex.unlock();
+			CallNextTask(i);
 		}
 		while (completedTasks < NB_TASKS)
 		{
 			
 		}
-		// loops until all tasks have been completed
-		//while (completedTasks < NB_TASKS) 
-		//{
-		//	for (int i = 0; i < NB_PROCESSORS; i++) 
-		//	{
-		//		if (!processors[i].IsBusy()) 
-		//		{
-		//			// assigns task to the processor if it is in a ready state
-		//			// this causes issues in some instances, since IsReady is not thread safe
-		//			if (tasks[currentTask].IsReady())
-		//			{
-		//				processors[i].LaunchTask(tasks[currentTask]);
-		//			}
-		//		} 
-		//		currentTask = (currentTask + 1) % NB_TASKS;
-		//	}
-		//}
 	};
 
 
 	//The function NotifyEndScheduling is called by the thread representing a processor when done with running a task. This may be of use in some implementations.
 	void NotifyEndScheduling(int processor, int taskId, TaskState state)
 	{
-		
-		// once a task terminates, it is added to the count of completed processes. 
-		/*if (state == 2) {
-			completedTasks += 1;
-		}*/
 		switch (state)
 		{
-		case notStarted:
-			cout << "not started";
-			break;
+		// Requeues the task and executes next task on the queue
 		case ready:
 			queueMutex.lock();
 			taskQueue.push(&tasks[taskId]);
-			processors[processor].LaunchTask(*taskQueue.front());
-			taskQueue.pop();
 			queueMutex.unlock();
+			CallNextTask(processor);
 			break;
+		// Updates the number of completed tasks and executes the next task
 		case terminated:
 			completedTasks.fetch_add(1);
-			cout << "\nTask Completed! Total: " << completedTasks;
-			queueMutex.lock();
-			processors[processor].LaunchTask(*taskQueue.front());
-			taskQueue.pop();
-			queueMutex.unlock();
-			break;
-		case running:
-			cout << "Running";
+			CallNextTask(processor);
 			break;
 		case waitingIOCompletion:
-			cout << "\nWaiting IO";
-			queueMutex.lock();
-			processors[processor].LaunchTask(*taskQueue.front());
-			taskQueue.pop();
-			queueMutex.unlock();
-			while (!tasks[taskId].IsReady())
+			if (taskQueue.size() >= NB_PROCESSORS)
 			{
+				CallNextTask(processor);
+
+				while (!tasks[taskId].IsReady())
+				{
+				}
+				queueMutex.lock();
+				taskQueue.push(&tasks[taskId]);
+				queueMutex.unlock();
 			}
-			queueMutex.lock();
-			taskQueue.push(&tasks[taskId]);
-			queueMutex.unlock();
+			else
+			{
+				while (!tasks[taskId].IsReady())
+				{
+				}
+				queueMutex.lock();
+				taskQueue.push(&tasks[taskId]);
+				queueMutex.unlock();
+				CallNextTask(processor);
+			}
 			break;
 		case done:
+			/*
+			This status didn't seem to be used in the provided code.
+			I assumed it would be roughly equivalent to a task terminating,
+			so handled it the same way.
+			*/
+			completedTasks.fetch_add(1);
 			cout << "done";
+			CallNextTask(processor);
 			break;
 		default:
+			// If an unexpected status is recieved, the processor moves to the next task
+			CallNextTask(processor);
 			break;
 		}
 	};
 
-	void CallNextTask(int processor)
-	{
-		while (true) {
-			if (taskQueue.size() > 0)
-			{
-				queueMutex.lock();
-				processors[processor].LaunchTask(*taskQueue.front());
-				taskQueue.pop();
-				queueMutex.unlock();
-				return;
-			}
-		}
-	}
+	
 
 	//Complete these two functions. The functions should return your student id and your name.
 	int StudentID() { return 851182; }
