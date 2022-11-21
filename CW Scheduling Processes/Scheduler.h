@@ -30,24 +30,21 @@ private:
 public:
 	void ScheduleTasksUntilEnd()  //In this function you will have to schedule all the tasks until completion of all of them.
 	{
-		/*for (int i = 0; i < NB_PROCESSORS; i++) {
-			processors[i].StartProcessor();
-		}*/
-		std::mutex m;
+		// loops until all tasks have been completed
 		while (completedTasks < NB_TASKS) 
 		{
 			for (int i = 0; i < NB_PROCESSORS; i++) 
 			{
 				if (!processors[i].IsBusy()) 
 				{
-					if (tasks[currentTask].IsReady() && !tasks[currentTask].IsWaitingForIO())
+					// assigns task to the processor if it is in a ready state
+					// this causes issues in some instances, since IsReady is not thread safe
+					if (tasks[currentTask].IsReady())
 					{
-						//cout << "Task: " << tasks[currentTask].GetID() << " " << tasks[currentTask].IsReady() << "\n";
 						processors[i].LaunchTask(tasks[currentTask]);
-						//cout << "\nProcessor " << processors[i].GetID() << " running task " << tasks[currentTask].GetID();					
 					}
-					currentTask = (currentTask + 1) % NB_TASKS;
-				}
+				} 
+				currentTask = (currentTask + 1) % NB_TASKS;
 			}
 		}
 	};
@@ -56,21 +53,9 @@ public:
 	//The function NotifyEndScheduling is called by the thread representing a processor when done with running a task. This may be of use in some implementations.
 	void NotifyEndScheduling(int processor, int taskId, TaskState state)
 	{
+		// once a task terminates, it is added to the count of completed processes. 
 		if (state == 2) {
-			//cout << "\nTask: " << taskId << " complete";
 			completedTasks += 1;
-			/*for (int i = 0; i < NB_TASKS; i++) {
-				if (tasks[i].IsReady()) {
-					processors[processor].LaunchTask(tasks[i]);
-				}
-			}*/
-			//cout << "\n" << completedTasks << " tasks completed";
-		}
-		if (state == 5) {
-			cout << "\nTask " << taskId << " done";
-		}
-		if (state == 4) {
-			cout << "\nTask " << taskId << " waiting IO";
 		}
 	};
 
