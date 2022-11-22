@@ -7,8 +7,9 @@
 #include <thread>
 #include "Processor.h"
 
-// NOTE :: I added this include and namespace to this file
+// NOTE :: I added these includes and namespace to this file
 #include <Queue>
+#include <chrono>
 using namespace std;
 
 //The scheduler class should implement scheduling operations required to allow smooth scheduling of all the tasks
@@ -31,6 +32,8 @@ private:
 	int queuedTasks = 0;
 	queue<Task*> taskQueue;
 	mutex queueMutex;
+	mutex waitMutex;
+	condition_variable waitAlert;
 
 	/*
 	 Helper function to handle calling the next queued task on a specified processor
@@ -69,10 +72,16 @@ public:
 		{
 			CallNextTask(i);
 		}
-		while (completedTasks < NB_TASKS)
+
+		//Uses a mutex lock and conditional variable to notify the thread to wake from wait state
+		unique_lock<mutex> waitLock(waitMutex);
+		waitAlert.wait_for(waitLock, 10000000s);
+
+
+		/*while (completedTasks < NB_TASKS)
 		{
 			
-		}
+		}*/
 	};
 
 
@@ -89,11 +98,18 @@ public:
 			CallNextTask(processor);
 			break;
 		// Updates the number of completed tasks and executes the next task
+		// If all tasks have been completed, sends a notify_all to resume the waiting ScheduleTasksUntilEnd thread
 		case terminated:
 			completedTasks.fetch_add(1);
+			if (completedTasks == NB_TASKS) {
+				waitAlert.notify_all();
+			}
 			CallNextTask(processor);
 			break;
+		// Handles requeuing tasks waiting for IO
 		case waitingIOCompletion:
+			// If there are other tasks for processors to execute
+			// the program continues executing tasks, with the IO task returning to a ready state in the background
 			if (taskQueue.size() >= NB_PROCESSORS)
 			{
 				CallNextTask(processor);
@@ -105,6 +121,7 @@ public:
 				taskQueue.push(&tasks[taskId]);
 				queueMutex.unlock();
 			}
+			// If there are no other tasks to execute, the processors wait for the tasks to return to a ready state
 			else
 			{
 				while (!tasks[taskId].IsReady())
@@ -123,7 +140,9 @@ public:
 			so handled it the same way.
 			*/
 			completedTasks.fetch_add(1);
-			cout << "done";
+			if (completedTasks == NB_TASKS) {
+				waitAlert.notify_all();
+			}
 			CallNextTask(processor);
 			break;
 		default:
