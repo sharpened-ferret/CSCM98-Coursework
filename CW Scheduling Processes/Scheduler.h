@@ -140,7 +140,12 @@ public:
 			CallNextTask(processor);
 			break;
 		default:
-			// If an unexpected status is recieved, the processor moves to the next task
+			// If an unexpected status is recieved, an error message is displayed and the processor moves to the next task
+			cout << "\nUnexpected Task Status: Task " << taskId << " skipped.\n";
+			completedTasks.fetch_add(1);
+			if (completedTasks == NB_TASKS) {
+				waitAlert.notify_all();
+			}
 			CallNextTask(processor);
 			break;
 		}
