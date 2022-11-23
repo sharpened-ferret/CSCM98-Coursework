@@ -45,10 +45,12 @@ private:
 			queueMutex.lock();
 			if (taskQueue.size() > 0)
 			{
-				processors[processor].LaunchTask(*taskQueue.front());
-				taskQueue.pop();
-				queueMutex.unlock();
-				return;
+				if (processors[processor].LaunchTask(*taskQueue.front()))
+				{
+					taskQueue.pop();
+					queueMutex.unlock();
+					return;
+				}
 			}
 			queueMutex.unlock();
 		}
