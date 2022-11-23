@@ -76,12 +76,6 @@ public:
 		//Uses a mutex lock and conditional variable to notify the thread to wake from wait state
 		unique_lock<mutex> waitLock(waitMutex);
 		waitAlert.wait_for(waitLock, 10000000s);
-
-
-		/*while (completedTasks < NB_TASKS)
-		{
-			
-		}*/
 	};
 
 
