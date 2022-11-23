@@ -55,8 +55,7 @@ private:
 	}
 
 	/*
-	 Thread function to wait for a task's IO operation to complete and requeue it,
-	 while execution of other tasks continues.
+	 Thread function to wait for a task's IO operation to complete then requeue it
 	*/
 	void WaitOnIO(int taskId) 
 	{
@@ -84,7 +83,14 @@ public:
 			CallNextTask(i);
 		}
 
-		//Uses a mutex lock and conditional variable to notify the thread to wake from wait state
+		/*
+		This waits the thread until it recieves a signal (when all tasks have completed), or it times out.
+		Ideally, we would use a sleep function with interrupts to achieve this, to reduce CPU usage and improve power efficiency. 
+
+		However, this seems to require platform-specific functionality, e.g. using sleep from <Windows.h> for Windows systems, or usleep from "unistd.h"
+		for POSIX-based systems like Linux. 
+		I've used wait here to maintain platform indepent functionality.
+		*/
 		unique_lock<mutex> waitLock(waitMutex);
 		waitAlert.wait_for(waitLock, 10000000s);
 	};
@@ -103,7 +109,7 @@ public:
 			CallNextTask(processor);
 			break;
 		// Updates the number of completed tasks and executes the next task
-		// If all tasks have been completed, sends a notify_all to resume the waiting ScheduleTasksUntilEnd thread
+		// If all tasks have been completed, sends a notify_all signal to resume the waiting ScheduleTasksUntilEnd thread
 		case terminated:
 			completedTasks.fetch_add(1);
 			if (completedTasks == NB_TASKS) {
