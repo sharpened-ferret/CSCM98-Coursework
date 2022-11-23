@@ -41,8 +41,7 @@ private:
 	void CallNextTask(int processor)
 	{
 		while (true) {
-			// This mutex block slows execution a fair bit
-			// It protects against dequeues on an empty taskQueue 
+			// This mutex block protects against dequeues on an empty taskQueue 
 			queueMutex.lock();
 			if (taskQueue.size() > 0)
 			{
@@ -53,6 +52,18 @@ private:
 			}
 			queueMutex.unlock();
 		}
+	}
+
+	/*
+	 Thread function to wait for a task's IO operation to complete and requeue it,
+	 while execution of other tasks continues.
+	*/
+	void WaitOnIO(int taskId) 
+	{
+		while (!tasks[taskId].IsReady()) {}
+		queueMutex.lock();
+		taskQueue.push(&tasks[taskId]);
+		queueMutex.unlock();
 	}
 
 public:
@@ -102,28 +113,11 @@ public:
 			break;
 		// Handles requeuing tasks waiting for IO
 		case waitingIOCompletion:
-			// If there are other tasks for processors to execute
-			// the program continues executing tasks, with the IO task returning to a ready state in the background
-			if (taskQueue.size() >= NB_PROCESSORS)
+			// Creates an independent thread to requeue the task once IO is complete
+			// Starts the next task on the current processor
 			{
-				CallNextTask(processor);
-
-				while (!tasks[taskId].IsReady())
-				{
-				}
-				queueMutex.lock();
-				taskQueue.push(&tasks[taskId]);
-				queueMutex.unlock();
-			}
-			// If there are no other tasks to execute, the processors wait for the tasks to return to a ready state
-			else
-			{
-				while (!tasks[taskId].IsReady())
-				{
-				}
-				queueMutex.lock();
-				taskQueue.push(&tasks[taskId]);
-				queueMutex.unlock();
+				thread IoUpdate(&Scheduler::WaitOnIO, this, taskId);
+				IoUpdate.detach();
 				CallNextTask(processor);
 			}
 			break;
