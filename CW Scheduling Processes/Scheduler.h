@@ -84,7 +84,7 @@ public:
 		}
 
 		/*
-		This waits the thread until it recieves a signal (when all tasks have completed), or it times out.
+		This waits the thread until it recieves a signal (when all tasks have completed), or it times out (after one hour).
 		Ideally, we would use a sleep function with interrupts to achieve this, to reduce CPU usage and improve power efficiency. 
 
 		However, this seems to require platform-specific functionality, e.g. using sleep from <Windows.h> for Windows systems, or usleep from "unistd.h"
@@ -92,7 +92,7 @@ public:
 		I've used wait here to maintain platform indepent functionality.
 		*/
 		unique_lock<mutex> waitLock(waitMutex);
-		waitAlert.wait_for(waitLock, 10000000s);
+		waitAlert.wait_for(waitLock, 3600s);
 	};
 
 
